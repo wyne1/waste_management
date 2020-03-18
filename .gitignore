@@ -1,0 +1,8 @@
+.DS_Store
+dash_examples/
+.ipynb_checkpoints
+__pycache__/
+*.pyc
+config.ini
+uber*
+pictures/
