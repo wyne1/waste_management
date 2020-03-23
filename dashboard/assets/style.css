@@ -65,10 +65,10 @@ a {
   /* padding: 20px; */
   display: flex;
   flex-direction: column;
-  height:45vh;
+  /* height:45vh; */
   width: 100%;
   margin: 10px;
-  margin-bottom: 0px;
+  /* margin-bottom: 0px; */
 }
 
 .div-node-charts {
@@ -76,9 +76,9 @@ a {
   /* flex-direction: column; */
   /* height: 80vh; */
   width: 100%;
-  height:25vh;
+  /* height:25vh; */
   /* padding: 10px; */
-  margin: 17px;
+  margin: 15px;
 }
 
 
