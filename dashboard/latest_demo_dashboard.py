@@ -56,6 +56,7 @@ for i in range(6):
         date1 = date
     node_data.loc[i] = [str(date1)[:19], round(23/6.7 + i*2.5, 3)]
 
+print(node_data.head())
 
 table_header = [
     html.Thead(html.Tr([html.Th(node_data.columns[0]), html.Th(data.columns[1])]))
@@ -407,6 +408,7 @@ def update_pie(datePicked):
 )
 def node_graph(n_intervals):
     global fill_db, node_data
+    container_depth = 200  # in cm
 
     # print("POLLING ------->", n_intervals, fill_db)
     if n_intervals <=1:
@@ -435,6 +437,7 @@ def node_graph(n_intervals):
             ],
 
             layout=Layout(
+            	title = "Node 0 with Depth: 200cm",
                 height = 350,
                 width = 1075,
                 xaxis=dict(
@@ -480,11 +483,14 @@ def node_graph(n_intervals):
     if fill_db["updated"] == True:
         print("IN DF UPDATE")
         val = fill_db["value"]
+        # fill_percent = (val/container_depth) * 100
+        fill_percent = ((container_depth - val) / container_depth) * 100
+        print("Fill %:", fill_percent)
         old_date = pd.to_datetime(node_data[-1:]["Date/Time"].values)
-        new_date = old_date + datetime.timedelta(seconds=10)
-        node_data = node_data.append(pd.DataFrame({'Date/Time': new_date, 'fill_value': val}), ignore_index=True)
+        new_date = old_date + datetime.timedelta(seconds=15)
+        node_data = node_data.append(pd.DataFrame({'Date/Time': new_date, 'fill_value': fill_percent}), ignore_index=True)
 
-        print(node_data)
+        print("New Node Data Shape: ", node_data.shape)
 
         fill_db["updated"] = False
 
@@ -492,9 +498,8 @@ def node_graph(n_intervals):
     node_0['Date/Time'] = pd.to_datetime(node_0['Date/Time'])
     node_0.set_index(node_0['Date/Time'], inplace=True)
 
-    return go.Figure(
+    fig =  go.Figure(
         data=[
-
             Scatter(
                 x = node_0.index,
                 y = node_0['fill_value'],
@@ -508,6 +513,12 @@ def node_graph(n_intervals):
 
         layout=Layout(
             height = 350,
+            # title = "Node 0 with Depth: 200cm",
+            title=dict(text ='Node 0 with Depth: 200cm',
+                            font =dict(family='Sherif',
+                               size=18,
+                               color = 'white')
+            ),
             # width = 1075,
             xaxis=dict(
                 showline=True,
@@ -523,6 +534,11 @@ def node_graph(n_intervals):
                 ),
             ),
             yaxis=dict(
+            	title=dict(text ='Fill &',
+                            font =dict(family='Sherif',
+                               size=14,
+                               color = 'white')
+            	),
                 showgrid=False,
                 zeroline=False,
                 showline=False,
@@ -546,10 +562,11 @@ def node_graph(n_intervals):
             plot_bgcolor='#343332',
             paper_bgcolor = "#343332"
         )
-
     )
-
-
+    fig.add_trace(Scatter(x=node_0.index, y=[95.0]*len(node_0.index), name='ALERT',
+    	line=dict(color='firebrick', width=2, dash='dash')
+    	))
+    return fig
 
 
 fill_db = {
