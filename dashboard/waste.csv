@@ -1,4 +1,4 @@
-Date/Time,node,lat,lon,fill_level
+Date/Time,Location,lat,lon,Status
 2020-01-03 16:13:24,Node 47,31.526456,74.311322,Full
 2020-01-02 14:41:46,Node 2,31.437508,74.2893,Full
 2020-01-03 00:24:16,Node 25,31.466618,74.246991,Full

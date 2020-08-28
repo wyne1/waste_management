@@ -16,6 +16,7 @@ from plotly.graph_objs import *
 import plotly.express as px
 import dash_table
 import flask
+from flask import request
 import datetime
 from datetime import datetime as dt
 from list_locations import list_of_locations
@@ -46,11 +47,11 @@ for i in range(6):
 alert_toast = dbc.Toast(
             "SOMEONE IS TRYING TO STEAL THE DEVICE",
             id="alert-popup",
-            header="THEFT ALERT!",
-            is_open=True,
+            header="    THEFT ALERT!   ",
+            is_open=False,
             dismissable=True,
-            icon="warning",
-            duration=1000000,
+            icon="danger",
+            duration=9000,
             # top: 66 positions the toast below the navbar
             style={"position": "fixed", "top": 20, "right": 800, "width": 800},
         )
@@ -111,7 +112,7 @@ app.layout = dbc.Container([
             ], width=6, align='center'),
             
             dbc.Col([
-                html.H4("City Container Fill Levels"),
+                html.H4("Overview - Peshawar Waste"),
                 dcc.Graph(id="pie-chart")
             ], width=3, align='center'),
         ], justify='center'),
@@ -119,7 +120,7 @@ app.layout = dbc.Container([
         #SECOND ROW
         dbc.Row([
             dbc.Col([
-                html.H3("Node History"),
+                html.H3("Location History"),
                 html.P(
                     """Select a node to view history of fill levels of that particular node"""
                 ),
@@ -145,9 +146,9 @@ app.layout = dbc.Container([
             ], width=6),
             
             dbc.Col([
-                html.H4("Container History"),
+                html.H4("Waste Events"),
             dash_table.DataTable(id='table',
-            columns=[{"name":i, "id":i} for i in tab.columns],
+            columns=[{"name": i, "id": i} for i in tab.columns],
             data=tab.to_dict('records'),
             style_header={
                 'fontWeight': 'bold',
@@ -204,6 +205,7 @@ fluid = True)
 )
 def node_graph(n_intervals):
     global fill_db, node_data
+    container_depth = 450  # in cm
 
     # print("POLLING ------->", n_intervals, fill_db)
     if n_intervals <=1:
@@ -277,11 +279,18 @@ def node_graph(n_intervals):
     if fill_db["updated"] == True:
         print("IN DF UPDATE")
         val = fill_db["value"]
+        # fill_percent = (val/container_depth) * 100
+        fill_percent = ((container_depth - val) / container_depth) * 100
+        
+        # if fill_percent != 100:
+        #     fill_percent = 100 - fill_percent
+        print(">> Fill %:", fill_percent)
+        
         old_date = pd.to_datetime(node_data[-1:]["Date/Time"].values)
         new_date = old_date + datetime.timedelta(seconds=10)
-        node_data = node_data.append(pd.DataFrame({'Date/Time': new_date, 'fill_value': val}), ignore_index=True)
+        node_data = node_data.append(pd.DataFrame({'Date/Time': new_date, 'fill_value': fill_percent}), ignore_index=True)
 
-        print(node_data)
+        print("New Node Data Shape: ", node_data.shape)
 
         fill_db["updated"] = False
 
@@ -289,9 +298,8 @@ def node_graph(n_intervals):
     node_0['Date/Time'] = pd.to_datetime(node_0['Date/Time'])
     node_0.set_index(node_0['Date/Time'], inplace=True)
 
-    return go.Figure(
+    fig = go.Figure(
         data=[
-
             Scatter(
                 x = node_0.index,
                 y = node_0['fill_value'],
@@ -306,6 +314,11 @@ def node_graph(n_intervals):
         layout=Layout(
             height = 400,
             # width = 1075,
+            title=dict(text ='University Road Sensor 2   |   Depth: 4.5 meter',
+                            font =dict(family='Sherif',
+                               size=18,
+                               color = 'white')
+            ),
             xaxis=dict(
                 showline=True,
                 showgrid=False,
@@ -320,6 +333,11 @@ def node_graph(n_intervals):
                 ),
             ),
             yaxis=dict(
+            	title=dict(text ='Fill %',
+                            font =dict(family='Sherif',
+                               size=14,
+                               color = 'white')
+            	),
                 showgrid=False,
                 zeroline=False,
                 showline=False,
@@ -345,6 +363,10 @@ def node_graph(n_intervals):
         )
 
     )
+    fig.add_trace(Scatter(x=node_0.index, y=[95.0]*len(node_0.index), name='ALERT',
+    	line=dict(color='firebrick', width=2, dash='dash')
+    	))
+    return fig
 
 
 
@@ -417,10 +439,6 @@ def update_pie(datePicked):
         Input("date-picker", "date"),
     ],
 )
-
-
-
-
 def update_graph(datePicked):
     zoom =14
 
@@ -476,7 +494,7 @@ def update_graph(datePicked):
             ),
         ],
         layout=Layout(
-            height = 350,
+            height = 500,
             # width = 1075,
             autosize=True,
             margin=go.layout.Margin(l=0, r=0, t=0, b=0),
@@ -532,13 +550,15 @@ def update_graph(datePicked):
 )
 def theft_alert(n_intervals):
     global theft_dict
-    print("THEFT API WORKING")
-    print(theft_dict)
+    
     if theft_dict['alert'] == True:
+        print(theft_dict)
         print("ALERT IS TRUE")
         theft_dict['alert'] = False
 
         return True
+    else:
+        return False
 
 theft_dict = {
     "alert": False
@@ -549,11 +569,21 @@ fill_db = {
     "updated": False
 }
 
+@server.route('/waste_node/<num>/theft', methods=['GET'])
+def theft_alert(num):
+    global theft_dict
+    print("THEFT API")
+    if request.method == "GET":
+        theft_dict['alert'] = True
+        print("  ****    THEFT !!  *****")
+        return """THEFT ALERT API HIT"""
+    return """Please use GET Method"""
+
 @server.route("/waste/<node>/data/", methods=['POST'])
 def waste_collection(node):
     global fill_db
     print("POST from Node:", node)
-    if flask.request.method == "POST":
+    if request.method == "POST":
         data = flask.request.get_json()
         print(data)
         fill_db["value"] = data["fill_level"]
@@ -562,37 +592,39 @@ def waste_collection(node):
         print(fill_db)
     return """SUCCESS"""
 
-@server.route('/waste_node/<num>/theft', methods=['POST'])
-def theft_alert(num):
-    global theft_dict
-    print("THEFT API")
-    if flask.request.method == "POST":
-        theft_dict['alert'] = True
-
-    return "THEFT ALERT API HIT"
-
 
 latitude, longitude = 0.00, 0.00
+# latitude, longitude = 34.003395, 71.518186
 @server.route('/waste_node/<num>', methods=['POST'])
 def waste_data(num):
     if request.method == "POST":
+        global fill_db
         global latitude; global longitude
         
         node_ip = request.remote_addr
         print("Got New POST from Node: {} -->> IP: {}".format(num, node_ip))
         data = request.get_json(force=True)
-        temp_latitude = data['latitude']
+        print("DATA:", data)
+        temp_latitude = data.get('latitude', None)
         
-        if temp_latitude != 0.00:
+        if (temp_latitude != 0.00) & (temp_latitude is not None):
             latitude, longitude = data['latitude'], data['longitude']
+        latitude, longitude = 34.003395, 71.518186  ## WSSP Location
+        
+        fill_db["value"] = data["fill_level"]
+        fill_db["updated"] = True
+        
         print("*******************       GOT New HIT      *******************")
         print(data)
         print("[INFO] Node: {}   |   Location: University Road Container 1".format(num))
         print("[1] Fill-Level: ", data['fill_level'])
         print("[2] Latitude: ", latitude)
         print("[3] Longitude: ", longitude)
+    return """SUCCESS"""
+
 
 
 
 if __name__ == '__main__':
-	app.run_server(debug=True)
+	# app.run_server(debug=True)
+    app.run_server(host = "0.0.0.0" , debug=True, port=5555, threaded=False)
